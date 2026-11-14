@@ -1,0 +1,12 @@
+{
+  "name": "campuslink",
+  "private": true,
+  "engines": {"node": ">=22.12.0"},
+  "scripts": {
+    "setup": "npm ci --prefix frontend && npm ci --prefix backend",
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "test": "npm test --prefix backend",
+    "lint": "npm run lint --prefix frontend",
+    "start": "cd backend && npm start"
+  }
+}

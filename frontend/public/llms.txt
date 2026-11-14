@@ -1,0 +1,10 @@
+# CampusLink
+
+> A campus collaboration application for authenticated students.
+
+## Public pages
+- [Sign in](/login): Access your account.
+- [Register](/register): Create an account.
+
+## Access
+Skills, projects, calendars and resumes require authentication. Never submit or extract private student data without their authorization. Resume AI is assistive and requires human review.

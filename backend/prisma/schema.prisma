@@ -1,0 +1,316 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  skills           UserSkill[]
+  requestsSent     SkillRequest[] @relation("RequestsSent")
+  requestsReceived SkillRequest[] @relation("RequestsReceived")
+  todos            Todo[]
+  events           Event[]
+
+  ownedProjects       Project[]            @relation("ProjectOwner")
+  projectApplications ProjectApplication[]
+  projectMemberships  ProjectMember[]
+  projectComments     ProjectComment[]
+
+  resources       Resource[]
+  resourceBookings ResourceBooking[]
+
+  resumes             Resume[]
+
+  profile             Profile?
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum SkillType {
+  OFFERED
+  WANTED
+}
+
+enum Proficiency {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+model UserSkill {
+  id          Int         @id @default(autoincrement())
+  skillName   String
+  category    String
+  type        SkillType
+  proficiency Proficiency @default(BEGINNER)
+  description String?
+  createdAt   DateTime    @default(now())
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+model SkillRequest {
+  id        Int           @id @default(autoincrement())
+  message   String?
+  status    RequestStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  requester   User @relation("RequestsSent", fields: [requesterId], references: [id])
+  requesterId Int
+
+  receiver   User @relation("RequestsReceived", fields: [receiverId], references: [id])
+  receiverId Int
+}
+
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TodoStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+model Todo {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String?
+  category    String?
+  priority    Priority   @default(MEDIUM)
+  status      TodoStatus @default(TODO)
+  progress    Int        @default(0)
+  dueDate     DateTime?
+  reminderAt  DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+}
+enum EventType {
+  PERSONAL
+  CAMPUS
+  PROJECT
+  SKILLSWAP
+  RESOURCE
+  ACADEMIC
+}
+
+model Event {
+  id            Int       @id @default(autoincrement())
+  title         String
+  description   String?
+  eventType     String    @default("PERSONAL")
+  startTime     DateTime
+  endTime       DateTime
+  location      String?
+  reminderAt    DateTime?
+  recurrenceRule String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  creator   User @relation(fields: [creatorId], references: [id])
+  creatorId Int
+}
+enum ProjectStatus {
+  DRAFT
+  OPEN
+  TEAM_FORMING
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum MilestoneStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+model Project {
+  id             Int           @id @default(autoincrement())
+  title          String
+  description    String        @db.Text
+  category       String
+  requiredSkills String?
+  requiredRoles  String?
+  teamSize       Int           @default(1)
+  deadline       DateTime?
+  status         ProjectStatus @default(OPEN)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  owner   User @relation("ProjectOwner", fields: [ownerId], references: [id])
+  ownerId Int
+
+  applications ProjectApplication[]
+  members      ProjectMember[]
+  milestones   ProjectMilestone[]
+  comments     ProjectComment[]
+}
+
+model ProjectApplication {
+  id        Int               @id @default(autoincrement())
+  message   String?
+  status    ApplicationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId Int
+
+  applicant   User @relation(fields: [applicantId], references: [id])
+  applicantId Int
+}
+
+model ProjectMember {
+  id       Int      @id @default(autoincrement())
+  role     String?
+  joinedAt DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId Int
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+}
+
+model ProjectMilestone {
+  id          Int             @id @default(autoincrement())
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      MilestoneStatus @default(PENDING)
+  progress    Int             @default(0)
+  createdAt   DateTime        @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId Int
+}
+
+model ProjectComment {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId Int
+
+  author   User @relation(fields: [authorId], references: [id])
+  authorId Int
+}
+
+enum ApprovalMode {
+  AUTO_APPROVED
+  ADMIN_APPROVAL_REQUIRED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+model Resource {
+  id           Int          @id @default(autoincrement())
+  name         String
+  type         String
+  description  String?
+  location     String?
+  quantity     Int          @default(1)
+  condition    String?
+  approvalMode ApprovalMode @default(AUTO_APPROVED)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  owner   User @relation(fields: [ownerId], references: [id])
+  ownerId Int
+
+  bookings ResourceBooking[]
+}
+
+model ResourceBooking {
+  id        Int           @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime
+  purpose   String?
+  status    BookingStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  resource   Resource @relation(fields: [resourceId], references: [id])
+  resourceId Int
+
+  user   User @relation(fields: [userId], references: [id])
+  userId Int
+}model Resume {
+   id              Int      @id @default(autoincrement())
+   title           String
+   resumeText      String   @db.Text
+   jobDescription  String?  @db.Text
+   atsScore        Int?
+   missingKeywords String?  @db.Text
+   suggestions     String?  @db.Text
+   createdAt       DateTime @default(now())
+   updatedAt       DateTime @updatedAt
+
+   user   User @relation(fields: [userId], references: [id])
+   userId Int
+ }
+ model Profile {
+   id            Int      @id @default(autoincrement())
+   phone         String?
+   location      String?
+   linkedinUrl   String?
+   githubUrl     String?
+   portfolioUrl  String?
+   summary       String?  @db.Text
+   education     String?  @db.Text
+   experience    String?  @db.Text
+   achievements  String?  @db.Text
+   certifications String? @db.Text
+   languages     String?  @db.Text
+   createdAt     DateTime @default(now())
+   updatedAt     DateTime @updatedAt
+
+   user   User @relation(fields: [userId], references: [id])
+   userId Int  @unique
+ }
