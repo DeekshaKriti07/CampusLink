@@ -32,4 +32,9 @@ jobs:
       - run: npm test --prefix backend
       - run: npm audit --prefix frontend
       - run: npm audit --prefix backend
+      - run: npm install --no-save --package-lock=false playwright
+      - name: Browser flows and delayed-font layout checks
+        run: node qa/browser-smoke.mjs
+        env:
+          NODE_ENV: test
       - run: docker build -t campuslink:ci .
