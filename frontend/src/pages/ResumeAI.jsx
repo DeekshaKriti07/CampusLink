@@ -318,6 +318,7 @@ export default function ResumePage() {
   return (
     <div className="cl-page">
       <PageHead eyebrow="Career tools" title="Resume AI." copy="Generate, check, and compare resumes for ATS compatibility — powered by a local AI model." />
+      <p className="cl-page-copy">Resume AI sends submitted text to the configured AI provider. The default hosted setup uses Groq. Check personal details before submitting and review generated facts before use.</p>
 
       <div className="cl-tabs">
         <button className={`cl-tab ${tab === 'generate' ? 'active' : ''}`} onClick={() => setTab('generate')}>Generate from scratch</button>

@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import jwt from 'jsonwebtoken';
 import { askOllama, parseResume, scoreAts } from '../src/services/ollama.service';
-process.env.DATABASE_URL = 'mysql://test:test@127.0.0.1:3306/test';
+process.env.DATABASE_URL = 'postgresql://test:test@127.0.0.1:5432/test';
+process.env.DIRECT_URL = process.env.DATABASE_URL;
+process.env.AI_PROVIDER = 'ollama';
 process.env.JWT_ACCESS_SECRET = 'test-only-secret-at-least-32-characters-long';
 process.env.NODE_ENV = 'test';
 let server: http.Server;
@@ -21,6 +23,15 @@ before(async () => {
     const body = JSON.parse(input);
     if (aiMode === 'slow') return;
     if (aiMode === 'error') { res.writeHead(500).end(); return; }
+    if (aiMode === 'rate') { res.writeHead(429).end(); return; }
+    if (req.url === '/chat/completions') {
+      assert.equal(req.headers.authorization, 'Bearer test-key');
+      assert.equal(body.model, 'llama-3.3-70b-versatile');
+      assert.equal(body.response_format?.type, 'json_object');
+      assert.equal(body.messages[0].role, 'system');
+      const content = aiMode === 'malformed' ? '{bad' : aiMode === 'invalid-shape' ? '{"skills":false}' : '{"name":"Test Student","skills":["React"]}';
+      res.end(JSON.stringify({ choices: [{ message: { content }, finish_reason: aiMode === 'truncated' ? 'length' : 'stop' }] })); return;
+    }
     if (aiMode === 'empty') { res.end(JSON.stringify({ response: '' })); return; }
     if (aiMode === 'truncated') { res.end(JSON.stringify({ response: '{}', done: true, done_reason: 'length' })); return; }
     assert.equal(body.format, 'json'); assert.equal(body.stream, false);
@@ -72,4 +83,18 @@ test('AI validates output, handles upstream errors, truncation, timeout and rele
   await assert.rejects(askOllama('test', true), /AI_BUSY/);
   await Promise.all([assert.rejects(first), assert.rejects(second)]);
   aiMode = 'valid'; process.env.AI_TIMEOUT_MS = '5000'; assert.equal(typeof await askOllama('test', true), 'string');
+});
+
+test('Groq request format, structured route, configuration and quota errors', async () => {
+  process.env.AI_PROVIDER = 'groq'; process.env.GROQ_BASE_URL = 'http://127.0.0.1:43675'; process.env.GROQ_API_KEY = 'test-key';
+  aiMode = 'valid'; assert.equal(parseResume(await askOllama('Return JSON', true)).name, 'Test Student');
+  const run = () => fetch(`${base}/api/v1/resume/structure`, { method: 'POST', headers: auth, body: JSON.stringify({ resumeText: 'Test Student knows React.' }) });
+  assert.equal((await run()).status, 200);
+  aiMode = 'malformed'; assert.equal((await run()).status, 502);
+  aiMode = 'invalid-shape'; assert.equal((await run()).status, 502);
+  aiMode = 'truncated'; await assert.rejects(askOllama('Return JSON', true), /AI_INVALID_RESPONSE/);
+  aiMode = 'rate'; const limited = await run(); assert.equal(limited.status, 429); assert.equal((await limited.json() as any).error.code, 'AI_RATE_LIMITED');
+  delete process.env.GROQ_API_KEY; await assert.rejects(askOllama('Return JSON', true), /AI_NOT_CONFIGURED/);
+  process.env.AI_PROVIDER = 'unknown'; await assert.rejects(askOllama('Return JSON', true), /AI_INVALID_PROVIDER/);
+  process.env.AI_PROVIDER = 'ollama';
 });

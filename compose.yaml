@@ -1,3 +1,4 @@
+# Optional local PostgreSQL + app. Free hosted deployment uses render.yaml + Neon.
 services:
   app:
     build: .
@@ -6,38 +7,31 @@ services:
       - "127.0.0.1:5001:5001"
     environment:
       NODE_ENV: production
-      DATABASE_URL: mysql://campuslink:${MYSQL_PASSWORD:?set MYSQL_PASSWORD}@db:3306/campuslink
+      DATABASE_URL: postgresql://campuslink:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/campuslink?connection_limit=3
+      DIRECT_URL: postgresql://campuslink:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@db:5432/campuslink
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5001}
       TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2}
-      AI_TIMEOUT_MS: "120000"
+      AI_PROVIDER: groq
+      GROQ_API_KEY: ${GROQ_API_KEY:?set GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      AI_TIMEOUT_MS: "60000"
     depends_on:
       db:
         condition: service_healthy
-      ollama:
-        condition: service_started
   db:
-    image: mysql:8.4
+    image: postgres:16-bookworm
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: campuslink
-      MYSQL_USER: campuslink
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
+      POSTGRES_DB: campuslink
+      POSTGRES_USER: campuslink
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -u root --silent"]
+      test: ["CMD-SHELL", "pg_isready -U campuslink -d campuslink"]
       interval: 10s
       timeout: 5s
       retries: 20
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    volumes:
-      - ollama_data:/root/.ollama
 volumes:
-  mysql_data:
-  ollama_data:
+  postgres_data:

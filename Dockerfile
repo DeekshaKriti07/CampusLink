@@ -25,5 +25,5 @@ COPY --from=backend --chown=node:node /app/backend/prisma ./prisma
 COPY --from=frontend --chown=node:node /app/frontend/dist /app/frontend/dist
 USER node
 EXPOSE 5001
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD node -e "fetch('http://127.0.0.1:5001/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||5001)+'/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["sh", "-c", "npm run db:migrate && npm start"]

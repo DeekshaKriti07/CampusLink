@@ -1,8 +1,14 @@
 import { Router } from "express";
 import { prisma } from "../../config/prisma";
 import { requireAuth } from "../../middleware/auth.middleware";
-import { askOllama, scoreAts, parseResume } from "../../services/ollama.service";
+import { scoreAts, parseResume } from "../../services/ollama.service";
 
+import { generateText } from '../../services/ai.service';
+function aiFailure(res, err) {
+  const limited = err?.message === 'AI_RATE_LIMITED';
+  if (limited) res.setHeader('Retry-After', '60');
+  return res.status(limited ? 429 : 503).json({ success: false, error: { code: limited ? 'AI_RATE_LIMITED' : 'AI_UNAVAILABLE', message: limited ? 'AI request limit reached. Please try again in a minute.' : 'AI service unavailable or busy. Please try again later.' } });
+}
 const router = Router();
 // Validate all resume inputs before string processing or model calls.
 router.use((req, res, next) => {
@@ -94,9 +100,9 @@ Languages: ${languages || "not specified"}${keywordLine}`;
 
   let rawOutput;
   try {
-    rawOutput = await askOllama(prompt, true);
+    rawOutput = await generateText(prompt, true);
   } catch (err) {
-    return res.status(503).json({ success: false, error: { code: "AI_UNAVAILABLE", message: "AI service unavailable or busy. Please try again later." } });
+    return aiFailure(res, err);
   }
 
   let structured;
@@ -148,16 +154,16 @@ ${resumeText}`;
 
   let rawOutput;
   try {
-    rawOutput = await askOllama(prompt, true);
+    rawOutput = await generateText(prompt, true);
   } catch (err) {
-    return res.status(503).json({ success: false, error: { code: "AI_UNAVAILABLE", message: "AI service unavailable or busy. Please try again later." } });
+    return aiFailure(res, err);
   }
 
   let structured;
   try {
     structured = parseResume(rawOutput);
   } catch {
-    return res.status(500).json({ success: false, error: { code: "PARSE_ERROR", message: "Could not structure the resume. Try again." } });
+    return res.status(502).json({ success: false, error: { code: "PARSE_ERROR", message: "Could not structure the resume. Try again." } });
   }
 
   return res.json({ success: true, data: { resumeStructured: structured } });
@@ -193,9 +199,9 @@ JOB DESCRIPTION:
 ${jobDescription}
 
 Output only the bullet points, no preamble.`;
-    suggestions = await askOllama(prompt);
+    suggestions = await generateText(prompt);
   } catch (err) {
-    suggestions = "AI suggestions unavailable (Ollama not reachable). Missing keywords are listed above — try incorporating them naturally into your resume.";
+    suggestions = "AI suggestions are currently unavailable. Missing keywords are listed above — try incorporating them naturally into your resume.";
   }
 
   const resume = await prisma.resume.create({

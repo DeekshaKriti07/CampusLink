@@ -6,6 +6,7 @@ import compression from 'compression';
 import { rateLimit } from 'express-rate-limit';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
+import { aiProvider } from './services/ai.service';
 import { validateInput } from './middleware/input.middleware';
 import { prisma } from './config/prisma';
 import authRoutes from './modules/auth/auth.routes';
@@ -20,9 +21,10 @@ import profileRoutes from './modules/profile/profile.routes';
 export const app = express();
 const production = process.env.NODE_ENV === 'production';
 if (!process.env.DATABASE_URL || !process.env.JWT_ACCESS_SECRET || process.env.JWT_ACCESS_SECRET.length < 32) throw new Error('Set DATABASE_URL and a JWT_ACCESS_SECRET of at least 32 characters.');
+if (production && aiProvider() === 'groq' && !process.env.GROQ_API_KEY) throw new Error('Set GROQ_API_KEY for the Groq provider.');
 app.disable('x-powered-by');
 if (process.env.TRUST_PROXY_HOPS) app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS));
-const origins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map(v => v.trim());
+const origins = (process.env.CORS_ORIGINS || process.env.RENDER_EXTERNAL_URL || 'http://localhost:5173').split(',').map(v => v.trim());
 app.use(cors({ origin(origin, callback) { callback(null, !origin || origins.includes(origin)); } }));
 app.use(helmet({ contentSecurityPolicy: { directives: {
   defaultSrc: ["'self'"], scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'https://cdn.jsdelivr.net'],

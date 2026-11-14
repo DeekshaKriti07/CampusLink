@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-// Requires a dedicated disposable MySQL database. Never point this at production.
-test('MySQL workflow: register, login, profile, skills, request permissions, projects, bookings', { skip: !process.env.TEST_DATABASE_URL }, async () => {
+// Requires a dedicated disposable PostgreSQL database. Never point this at production.
+test('PostgreSQL workflow: register, login, profile, skills, request permissions, projects, bookings', { skip: !process.env.TEST_DATABASE_URL }, async () => {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  process.env.DIRECT_URL = process.env.TEST_DATABASE_URL;
   process.env.JWT_ACCESS_SECRET = 'test-only-secret-at-least-32-characters-long';
   process.env.NODE_ENV = 'test';
   const { app } = await import('../src/server');
