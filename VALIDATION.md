@@ -33,3 +33,15 @@ The database workflow was executed separately with a real temporary PostgreSQL i
 - A new Lighthouse/browser layout run, OCR downloads and image/PDF export on the deployed host. This workspace cannot start Chromium because required browser socket operations are blocked.
 
 Use FREE_HOSTING.md to deploy and complete these checks. The source is prepared for a free student/demo deployment; this report does not claim an already running deployment, unlimited free capacity or production availability guarantees.
+
+## Lighthouse follow-up: layout and startup loading
+
+The personalized greeting reserves its name line before identity data arrives, avoiding the heading-height change that moved the hero in the supplied report. Self-hosted fonts use `font-display: optional`, with two critical font preloads and one secondary mono weight. On a slow first visit, optional fonts can remain on their system fallback for that navigation to avoid a late visible swap.
+
+Initial styles are included directly in the production HTML, eliminating the external render-blocking stylesheet request while keeping the first paint styled. The emitted stylesheet remains an output asset, but the initial HTML does not request it. Secondary routes are separate dynamic chunks; the dashboard stays eagerly available to avoid adding a loading-to-dashboard shift. A small native fetch wrapper replaces Axios while preserving the API response/error contract and session handling.
+
+One authenticated `/skillswap/board` request now loads identity, skills, matches and requests. The server shares matching behavior with the existing `/matches` endpoint and selects only public identity fields. Other authenticated endpoints remain available for mutations/refreshes.
+
+Measured build output: the main JavaScript changed from about 348.90 kB raw / 109.35 kB gzip to 252.63 kB raw / 80.74 kB gzip. Shared preloaded chunks add to that main-file size; total transfer also includes fonts, HTML, and the selected page. These are build measurements, not a new Lighthouse score.
+
+Verified: frontend/backend builds, clean lint, seven frontend API/build checks, six backend HTTP/model-adapter checks, a separate real PostgreSQL workflow including bootstrap isolation/matching parity, and eleven fixture-driven DOM render checks. Dependency audits report no known vulnerabilities. The authenticated browser layout, final CLS score, and deployed behavior still need a new real-browser audit after publication.

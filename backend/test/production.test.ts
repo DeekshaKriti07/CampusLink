@@ -52,7 +52,7 @@ test('health and real static resources have correct responses', async () => {
   assert.equal((await fetch(`${base}/api/v1/no-such-endpoint`)).status, 404);
 });
 test('protected endpoints reject unauthenticated and expired tokens', async () => {
-  for (const route of ['/auth/me','/skillswap/skills/mine','/skillswap/matches','/projects','/events','/resources','/profile','/resume']) assert.equal((await fetch(`${base}/api/v1${route}`)).status, 401, route);
+  for (const route of ['/auth/me','/skillswap/skills/mine','/skillswap/matches','/skillswap/board','/projects','/events','/resources','/profile','/resume']) assert.equal((await fetch(`${base}/api/v1${route}`)).status, 401, route);
   const expired = jwt.sign({ userId: 1 }, process.env.JWT_ACCESS_SECRET!, { expiresIn: -1 });
   assert.equal((await fetch(`${base}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${expired}` } })).status, 401);
 });

@@ -27,7 +27,16 @@ test('PostgreSQL workflow: register, login, profile, skills, request permissions
     await call('POST','/skillswap/skills',{skillName:'React',category:'Web',type:'OFFERED'},ta,201);
     await call('POST','/skillswap/skills',{skillName:'React',category:'Web',type:'WANTED'},tb,201);
     assert.ok((await call('GET','/skillswap/matches',undefined,tb)).some(m=>m.user.id===a.id));
+    const board = await call('GET','/skillswap/board',undefined,tb);
+    assert.equal(board.user.id,b.id);
+    assert.equal(board.user.password,undefined);
+    assert.ok(board.skills.every(skill=>skill.userId===b.id));
+    assert.deepEqual(board.matches,await call('GET','/skillswap/matches',undefined,tb));
+
     const request = await call('POST','/skillswap/requests',{receiverId:b.id,message:'Exchange React'},ta,201);
+    const requestedBoard = await call('GET','/skillswap/board',undefined,tb);
+    assert.ok(requestedBoard.requests.some(r=>r.id===request.id));
+    assert.ok(requestedBoard.requests.every(r=>r.requesterId===b.id || r.receiverId===b.id));
     await call('PATCH',`/skillswap/requests/${request.id}`,{status:'ACCEPTED'},ta,403);
     await call('PATCH',`/skillswap/requests/${request.id}`,{status:'ACCEPTED'},tb);
     await call('PATCH',`/skillswap/requests/${request.id}`,{status:'COMPLETED'},ta);

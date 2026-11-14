@@ -44,18 +44,10 @@ router.get("/skills", requireAuth, async (req, res) => {
   return res.json({ success: true, data: skills });
 });
 
-// MATCHING: find users whose OFFERED skills match my WANTED skills, and vice versa
-router.get("/matches", requireAuth, async (req, res) => {
-  const myUserId = req.user.userId;
-
-  const mySkills = await prisma.userSkill.findMany({ where: { userId: myUserId } });
+// Share matching behavior between the board bootstrap and explicit refreshes.
+function buildMatches(mySkills, otherSkills) {
   const myOffered = mySkills.filter((s) => s.type === "OFFERED").map((s) => s.skillName.toLowerCase());
   const myWanted = mySkills.filter((s) => s.type === "WANTED").map((s) => s.skillName.toLowerCase());
-
-  const otherSkills = await prisma.userSkill.findMany({
-    where: { userId: { not: myUserId } },
-    include: { user: { select: { id: true, name: true, email: true } } },
-  });
 
   const scoresByUser: Record<number, { user: { id: number; name: string; email: string }; score: number; reasons: string[] }> = {};
 
@@ -90,7 +82,31 @@ router.get("/matches", requireAuth, async (req, res) => {
     .filter((m) => m.score > 0)
     .sort((a, b) => b.score - a.score);
 
-  return res.json({ success: true, data: matches });
+  return matches;
+}
+
+router.get("/matches", requireAuth, async (req, res) => {
+  const userId = req.user.userId;
+  const [mySkills, otherSkills] = await Promise.all([
+    prisma.userSkill.findMany({ where: { userId } }),
+    prisma.userSkill.findMany({ where: { userId: { not: userId } }, include: { user: { select: { id: true, name: true, email: true } } } }),
+  ]);
+  return res.json({ success: true, data: buildMatches(mySkills, otherSkills) });
+});
+
+// One authenticated bootstrap replaces identity -> skills/matches/requests round trips.
+router.get("/board", requireAuth, async (req, res) => {
+  const userId = req.user.userId;
+  const [user, skills, otherSkills, requests] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { id: true, name: true, email: true, role: true } }),
+    prisma.userSkill.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
+    prisma.userSkill.findMany({ where: { userId: { not: userId } }, include: { user: { select: { id: true, name: true, email: true } } } }),
+    prisma.skillRequest.findMany({ where: { OR: [{ requesterId: userId }, { receiverId: userId }] }, include: {
+      requester: { select: { id: true, name: true, email: true } }, receiver: { select: { id: true, name: true, email: true } },
+    }, orderBy: { createdAt: 'desc' } }),
+  ]);
+  if (!user) return res.status(401).json({ success: false, error: { code: 'AUTHENTICATION_REQUIRED', message: 'Please sign in again' } });
+  return res.json({ success: true, data: { user, skills, matches: buildMatches(skills, otherSkills), requests } });
 });
 
 const requestSchema = z.object({
